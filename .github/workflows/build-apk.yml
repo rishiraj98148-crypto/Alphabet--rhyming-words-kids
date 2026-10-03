@@ -25,28 +25,55 @@ jobs:
         with:
           gradle-version: '8.10.2'
 
+      - name: Extract Android Project ZIP
+        shell: bash
+        run: |
+          echo "Searching for project ZIP..."
+
+          ZIP_FILE=$(find . -maxdepth 2 -type f -iname "*.zip" | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: No ZIP file found."
+            echo "Files in repository:"
+            find . -maxdepth 3 -type f | sort
+            exit 1
+          fi
+
+          echo "Found ZIP:"
+          echo "$ZIP_FILE"
+
+          mkdir -p extracted
+          unzip -o "$ZIP_FILE" -d extracted
+
+          echo "Extracted files:"
+          find extracted -maxdepth 4 -type f | sort
+
       - name: Find Android Project
         id: project
         shell: bash
         run: |
-          SETTINGS=$(find . -type f -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1)
+          SETTINGS=$(find extracted -type f \( \
+            -name "settings.gradle" \
+            -o -name "settings.gradle.kts" \
+          \) | head -n 1)
 
           if [ -z "$SETTINGS" ]; then
-            echo "ERROR: settings.gradle not found"
-            find . -maxdepth 4 -type f | sort
+            echo "ERROR: settings.gradle not found after extracting ZIP."
+            echo "Extracted files:"
+            find extracted -maxdepth 6 -type f | sort
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS")
 
-          echo "Gradle project found at:"
+          echo "Android project found:"
           echo "$PROJECT_DIR"
 
           echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Show Project Files
+      - name: Show Android Project
         run: |
-          echo "Project directory:"
+          echo "Project:"
           echo "${{ steps.project.outputs.project_dir }}"
           ls -la "${{ steps.project.outputs.project_dir }}"
 
@@ -63,11 +90,11 @@ jobs:
         with:
           name: Alphabet-Game-Kids-APK
           path: |
-            **/app/build/outputs/apk/debug/app-debug.apk
+            extracted/**/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: Alphabet-Game-Kids-AAB
           path: |
-            **/app/build/outputs/bundle/release/app-release.aab
+            extracted/**/app/build/outputs/bundle/release/app-release.aab
