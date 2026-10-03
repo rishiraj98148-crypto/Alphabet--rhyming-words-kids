@@ -1,4 +1,4 @@
-name: Build Rhyming Words APK and AAB
+name: Build Alphabet Game APK and AAB
 
 on:
   workflow_dispatch:
@@ -14,22 +14,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract Android Project ZIP
-        run: |
-          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Project ZIP not found"
-            exit 1
-          fi
-
-          mkdir -p extracted
-          unzip -o "$ZIP_FILE" -d extracted
-
-          cp -r extracted/. ./
-
-          echo "Project files:"
-          ls -la
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -38,21 +22,52 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Find Android Project
+        id: project
+        shell: bash
+        run: |
+          SETTINGS=$(find . -type f -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1)
+
+          if [ -z "$SETTINGS" ]; then
+            echo "ERROR: settings.gradle not found"
+            find . -maxdepth 4 -type f | sort
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS")
+
+          echo "Gradle project found at:"
+          echo "$PROJECT_DIR"
+
+          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Show Project Files
+        run: |
+          echo "Project directory:"
+          echo "${{ steps.project.outputs.project_dir }}"
+          ls -la "${{ steps.project.outputs.project_dir }}"
 
       - name: Build Debug APK
-        run: gradle assembleDebug
+        run: |
+          gradle -p "${{ steps.project.outputs.project_dir }}" assembleDebug
 
       - name: Build Release AAB
-        run: gradle bundleRelease
+        run: |
+          gradle -p "${{ steps.project.outputs.project_dir }}" bundleRelease
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Rhyming-Words-Kids-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: Alphabet-Game-Kids-APK
+          path: |
+            **/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: Rhyming-Words-Kids-AAB
-          path: app/build/outputs/bundle/release/app-release.aab
+          name: Alphabet-Game-Kids-AAB
+          path: |
+            **/app/build/outputs/bundle/release/app-release.aab
